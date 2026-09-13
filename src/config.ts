@@ -77,7 +77,16 @@ function cfgBoolOff(yamlKey: string, envKey: string): boolean {
   return true;
 }
 
-const DEFAULT_HEADROOM_BIN = join(homedir(), ".omp", "agent", "headroom-venv", "bin", "headroom");
+const VENV_BIN_DIR = process.platform === "win32" ? "Scripts" : "bin";
+const VENV_EXECUTABLE = process.platform === "win32" ? "headroom.exe" : "headroom";
+const DEFAULT_HEADROOM_BIN = join(
+  homedir(),
+  ".omp",
+  "agent",
+  "headroom-venv",
+  VENV_BIN_DIR,
+  VENV_EXECUTABLE,
+);
 export const WIDGET_PLACEMENT = process.env.OMP_HEADROOM_WIDGET_PLACEMENT || "rightEditor";
 
 export const PROXY_URL = (process.env.OMP_HEADROOM_URL || DEFAULT_PROXY_URL).replace(/\/+$/, "");
@@ -147,7 +156,11 @@ export const ARCHIVE_STATS_DIR = cfgStr(
   "OMP_HEADROOM_ARCHIVE_STATS_DIR",
   join(dirname(VENV_DIR), "headroom-archive-stats"),
 );
-export const VENV_PYTHON = join(VENV_DIR, "bin", "python");
+export const VENV_PYTHON = join(
+  VENV_DIR,
+  VENV_BIN_DIR,
+  process.platform === "win32" ? "python.exe" : "python",
+);
 export const AUTOUPDATE = process.env.OMP_HEADROOM_AUTOUPDATE !== "0";
 export const UPDATE_INTERVAL_MS = Number(
   process.env.OMP_HEADROOM_UPDATE_INTERVAL_MS || 24 * 3_600_000,

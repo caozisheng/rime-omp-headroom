@@ -9,6 +9,8 @@ import type { ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 /** Per-session slice of the proxy `/stats` `savings.per_project` map. */
 export interface ProxyProjectStats {
   requests?: number;
+  /** Successful, accepted tool-result compressions attributed to this project. */
+  tool_compressions?: number;
   tokens_saved?: number;
   savings_percent?: number;
   compression_pct?: number;

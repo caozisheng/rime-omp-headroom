@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import headroomExtension, { cacheUsageLine, localCompressionLine } from "../src/index.ts";
+import { compactStatsLine } from "../src/widget.ts";
 
 describe("widget savings formatting", () => {
   test("keeps archive count beside abbreviated archive savings", () => {
@@ -36,6 +37,26 @@ describe("widget savings formatting", () => {
         sessionArchiveCharsSaved: 0,
       }),
     ).toBe("saved 1.2B · 62%");
+  });
+  test("uses explicit proxy tool-result counts without inferring from tool savings", () => {
+    const state = {
+      sessionId: "session-1",
+      stats: {
+        savings: {
+          per_project: {
+            "session-1": { requests: 4, tool_compressions: 3, tool_saved: 999 },
+          },
+        },
+      },
+      providerCompressions: 0,
+      toolCompressions: 0,
+      ccrHashes: 0,
+      ompCompactions: 0,
+    };
+    expect(compactStatsLine(state)).toContain("tool 3");
+
+    state.stats.savings.per_project["session-1"] = { requests: 4, tool_saved: 999 };
+    expect(compactStatsLine(state)).toContain("tool ?");
   });
 });
 

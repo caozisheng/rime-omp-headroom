@@ -85,7 +85,7 @@ describe("Responses aggregate tool-output compression", () => {
         if (!fs.existsSync(file)) process.exit(5);
         if (fs.readFileSync(file, "utf8") !== originals[index]) process.exit(6);
       }
-      if (state.providerCompressions !== 1) process.exit(7);
+      if (state.providerCompressions !== 0 || state.toolCompressions !== originals.length) process.exit(7);
       if (state.ccrHashes !== originals.length) process.exit(8);
       if (state.tokensSaved !== 3600) process.exit(9);
     `;

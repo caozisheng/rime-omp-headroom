@@ -1341,7 +1341,7 @@ async function compressAnthropicPayload(payload, ctx, state) {
         const persisted = await persistCcrOriginal(result, output, compressed, state, ctx);
         if (persisted) {
           nextContent.push({ ...block, content: compressed });
-          recordCompression(state, "provider", result, ctx);
+          recordCompression(state, "tool", result, ctx);
           contentChanged = true;
           changed = true;
           continue;
@@ -1486,7 +1486,7 @@ export async function compressResponsesPayload(
       const batch = await compressResponsesBatch(batchEntries, workingPayload, ctx, state);
       if (!batch) continue;
       for (const entry of batch.changes) nextInput[entry.index] = entry.item;
-      recordCompression(state, "provider", batch.result, ctx);
+      recordCompression(state, "tool", batch.result, ctx, batch.changes.length);
       changed = true;
     } catch {
       // Batch failure is fail-open; oversized outputs still run independently.
@@ -1567,29 +1567,30 @@ export async function compressResponsesPayload(
     );
     if (!persisted) continue;
     nextInput[index] = entry.item;
-    recordCompression(state, "provider", entry.result, ctx);
+    recordCompression(state, "tool", entry.result, ctx);
     changed = true;
   }
   return changed ? { ...workingPayload, input: nextInput } : workingPayload;
 }
 
-function recordCompression(state, kind, result, ctx) {
+function recordCompression(state, kind, result, ctx, count = 1) {
   const saved = Math.max(0, asNumber(result?.tokensSaved));
   if (saved <= 0) return;
+  const acceptedCount = Math.max(1, Math.trunc(asNumber(count)));
   // hasUI=false → subagent or pre-initialize main. Use MODULE-LEVEL counters
   // (not state.foreignSelf*) because the factory creates a separate state per
   // call, but Bun caches the module — so _sharedForeign* is visible to both
   // the main's compactStatsLine and the subagent's recordCompression.
   if (ctx && !isMainSession(ctx)) {
-    if (kind === "provider") shared.foreignProvider += 1;
-    if (kind === "tool") shared.foreignTool += 1;
+    if (kind === "provider") shared.foreignProvider += acceptedCount;
+    if (kind === "tool") shared.foreignTool += acceptedCount;
     return;
   }
   state.tokensSaved += saved;
   state.tokensBefore += Math.max(0, asNumber(result?.tokensBefore));
   state.tokensAfter += Math.max(0, asNumber(result?.tokensAfter));
-  if (kind === "provider") state.providerCompressions += 1;
-  if (kind === "tool") state.toolCompressions += 1;
+  if (kind === "provider") state.providerCompressions += acceptedCount;
+  if (kind === "tool") state.toolCompressions += acceptedCount;
 }
 
 // Fire-and-forget stats refresh + widget repaint for hook paths: the provider

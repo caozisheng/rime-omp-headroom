@@ -31,7 +31,7 @@ export function renderHeadroomUserService(headroomBin: string, port: number): st
   const executable = quoteSystemdExecArgument(headroomBin);
   const servicePort = validPort(port);
 
-  const template = readFileSync(SYSTEMD_TEMPLATE_PATH, "utf8");
+  const template = readFileSync(SYSTEMD_TEMPLATE_PATH, "utf8").replaceAll("\r\n", "\n");
   if (!template.includes("@HEADROOM_BIN@") || !template.includes("@PORT@")) {
     throw new Error(`Invalid Headroom service template: ${SYSTEMD_TEMPLATE_PATH}`);
   }

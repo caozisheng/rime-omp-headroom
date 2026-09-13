@@ -73,9 +73,16 @@ export function compactStatsLine(state: HeadroomState): string {
     for (const sid of subagentSessionIds) sum += Math.max(0, asNumber(pp[sid]?.requests));
     if (sum > 0) foreignReq = sum;
   }
+  const proxyTool = typeof ps?.tool_compressions === "number" ? ps.tool_compressions : undefined;
+  const toolLine =
+    proxyTool === undefined
+      ? ps
+        ? "tool ?"
+        : seg("tool", state.toolCompressions, shared.foreignTool)
+      : `tool ${formatInt(Math.max(0, proxyTool))}`;
   const lines = [
     seg("req", reqCount, foreignReq),
-    seg("tool", state.toolCompressions, shared.foreignTool),
+    toolLine,
     seg("ccr", state.ccrHashes, shared.foreignCcr),
   ];
   if (state.ompCompactions > 0) lines.push(`com ${formatInt(state.ompCompactions)}`);
