@@ -100,7 +100,7 @@ omp-headroom/
 - 模块级桥：`WeakMap<ui, PetBridge>`，按 UI 对象隔离 extension 实例与并发会话。
 - `renderWidget(ctx, state)` 双路径：无宠物桥时维持字符串 widget；有桥时首次用工厂挂载，之后仅更新同一组件实例。
   工厂内容不受 10 行截断限制；盒 ≤6 行 + 宠物 5 行。
-宽度自适应：面宽 ≥ 盒宽+1+帧宽时宠物完整显示；仅够盒宽时宠物隐藏（即现有 renderPetFrame 行为）；
+宽度自适应：宠物始终紧贴 Headroom 盒右侧；合成 widget 不因剩余面板宽度不足而丢弃已选宠物帧，宿主负责在面板边界裁剪溢出内容。宠物放不下时退化为盒-only 的行为仅适用于 standalone `renderPetFrame` 的显式宽度预算。
 宠物始终紧贴 Headroom 盒右侧，不进行右对齐或其它 align 计算。
 
 ## 6. 统一 on/off（src/index.ts）

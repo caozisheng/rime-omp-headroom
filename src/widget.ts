@@ -243,10 +243,11 @@ class MergedWidget implements ExtensionUiComponent {
     if (this.cached && this.cached.width === width) return this.cached.rows;
     const boxLines = this.box.lines;
     const boxWidth = this.box.width;
-    // The pet sits flush against the box's right border; renderPetFrame
-    // returns raw frame lines and [] when the leftover width cannot fit
-    // the frame (pet hidden).
-    const petAvail = Math.max(0, width - boxWidth);
+    // Keep a selected pack visible even when the panel budget is narrower than
+    // its artwork. The host clips the component at the panel boundary; hiding
+    // the pet here made wider bundled packs vanish entirely after selection.
+    const frameWidth = this.petFrame?.lines[0]?.length ?? 0;
+    const petAvail = Math.max(width - boxWidth - 1, frameWidth);
     const petRows = this.petOn && this.petFrame ? renderPetFrame(this.petFrame, petAvail) : [];
     const petWidth = petRows.length > 0 ? Math.max(...petRows.map((line) => line.length)) : 0;
     const rowCount = Math.max(boxLines.length, petRows.length);

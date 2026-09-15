@@ -268,6 +268,20 @@ describe("merged pet runtime", () => {
     await host.pet("dragon");
     expect(host.notifications.join(" ")).toContain("Available: cat, dog, parrot");
   });
+  test("keeps wider selected pets visible when side-by-side space is insufficient", async () => {
+    const host = new FakeHost();
+    await host.load();
+    await host.emit("session_start");
+    await host.settle();
+
+    await host.pet("dog");
+    const dogRows = host.mountedWidget().render(48);
+    expect(dogRows.join("\n")).toContain("/\\       /\\");
+
+    await host.pet("parrot");
+    const parrotRows = host.mountedWidget().render(48);
+    expect(parrotRows.join("\n")).toContain(".---.");
+  });
 
   test("settles back to lifecycle after a non-loop reaction animation completes", async () => {
     const dir = makeTempDir();
