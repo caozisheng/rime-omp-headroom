@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 1,
+  "id": "dog",
+  "name": "Campy ASCII Dog",
+  "width": 16,
+  "height": 5,
+  "fallbackAction": "idle",
+  "actions": {
+    "idle": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  o-|-o  )     ",
+            " \\  ---  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 4000
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  --|-|--)     ",
+            " \\  ---  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 130
+        }
+      ]
+    },
+    "happy": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ^-|-^  )     ",
+            " \\  w    /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 1800
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ^-|-^  )     ",
+            " \\  w    /      ",
+            "  | --- |       ",
+            " /  *  ~  \\     "
+          ],
+          "durationMs": 600
+        }
+      ]
+    },
+    "sleeping": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  --|-|--)     ",
+            " \\  ___  /      ",
+            "  | --- |       ",
+            "    z z         "
+          ],
+          "durationMs": 2500
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  --|-|--)     ",
+            " \\  ___  /      ",
+            "  | --- |       ",
+            "   Z   z        "
+          ],
+          "durationMs": 1200
+        }
+      ]
+    },
+    "eating": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  o-|-o  )     ",
+            " \\  w    /      ",
+            "  |-nom- |      ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 400
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ^-|-^  )     ",
+            " \\  w    /      ",
+            "  |-nom- |      ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 350
+        }
+      ]
+    },
+    "playing": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  >-|->  )     ",
+            " \\  w    /      ",
+            " ~| --- |~      ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 450
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  <-|-<  )     ",
+            " \\  w    /      ",
+            " ~| --- |~      ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 450
+        }
+      ]
+    },
+    "excited": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            "*/\\       /\\*   ",
+            "(  *-|-*  )     ",
+            " \\  !!   /      ",
+            "  | --- |       ",
+            " /  *  ~  \\     "
+          ],
+          "durationMs": 280
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ^-|-^  )     ",
+            " \\  w    /      ",
+            "  | --- |       ",
+            " /  *  ~  \\     "
+          ],
+          "durationMs": 280
+        }
+      ]
+    },
+    "sad": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  T-|-T  )     ",
+            " \\  ___  /      ",
+            "  | --- |       ",
+            "  ;;  ;;        "
+          ],
+          "durationMs": 3500
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  T-|-T  )     ",
+            " \\  ___  /      ",
+            "  | --- |       ",
+            " ;;;   ;;;      "
+          ],
+          "durationMs": 1500
+        }
+      ]
+    },
+    "wake": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  |-|-|  )     ",
+            " \\  ---  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 900
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  o-|-o  )     ",
+            " \\  ---  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 700
+        }
+      ]
+    },
+    "think": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ?-|-?  )     ",
+            " \\  ---  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 1400
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  6-|-9  )     ",
+            " \\  ---  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 700
+        }
+      ]
+    },
+    "work": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  >-|->  )     ",
+            " \\  w    /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 450
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  =-|-=  )     ",
+            " \\  zz   /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 450
+        }
+      ]
+    },
+    "wait": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  o-|-o  )     ",
+            " \\  ...  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 1600
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  --|-|--)     ",
+            " \\  ...  /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 900
+        }
+      ]
+    },
+    "celebrate": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ^-|-^  )     ",
+            " \\  w    /      ",
+            "  | --- |       ",
+            " /  \\o/  \\      "
+          ],
+          "durationMs": 500
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  ^-|-^  )     ",
+            " \\  w    /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 500
+        }
+      ]
+    },
+    "panic": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  #-|-#  )     ",
+            " \\  !!   /      ",
+            "  | --- |       ",
+            " /  \\/  \\       "
+          ],
+          "durationMs": 350
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  @-|-@  )     ",
+            " \\  !!   /      ",
+            "  | --- |       ",
+            " \\_ ___ _/      "
+          ],
+          "durationMs": 350
+        }
+      ]
+    },
+    "compact": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  <-|-<  )     ",
+            " \\  <<   /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 800
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  >-|->  )     ",
+            " \\  >>   /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 800
+        }
+      ]
+    },
+    "interrupted": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  X-|-X  )     ",
+            " \\  ##   /      ",
+            "  | --- |       ",
+            " /  ___  \\      "
+          ],
+          "durationMs": 1200
+        }
+      ]
+    },
+    "sleep": {
+      "loop": true,
+      "frames": [
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  --|-|--)     ",
+            " \\  ___  /      ",
+            "  | --- |       ",
+            "    z z         "
+          ],
+          "durationMs": 2500
+        },
+        {
+          "lines": [
+            " /\\       /\\    ",
+            "(  --|-|--)     ",
+            " \\  ___  /      ",
+            "  | --- |       ",
+            "   Z   z        "
+          ],
+          "durationMs": 1200
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "author": "OpenCode Pets Contributors",
+    "license": "MIT",
+    "source": "Derived from https://github.com/dropdevrahul/campy/blob/814566b7df24512c64884550bd22589d5fedd2d4/core/pets/dog.ts; Unicode glyphs replaced with ASCII and layered frames normalized to 16x5",
+    "originalImplementation": false
+  }
+}

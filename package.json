@@ -1,7 +1,7 @@
 {
   "name": "omp-headroom",
-  "version": "0.1.4",
-  "description": "Headroom context-compression integration for OMP: proxy lifecycle, tool-output compression, session archive compaction with CCR retrieval, adaptive thresholds, and a live savings widget.",
+  "version": "0.2.0",
+  "description": "Headroom context-compression integration for OMP: proxy lifecycle, tool-output compression, session archive compaction with CCR retrieval, adaptive thresholds, a live savings widget, and an integrated ASCII pet runtime.",
   "author": "DarkPhilosophy",
   "license": "GPL-3.0-or-later",
   "type": "module",
@@ -22,6 +22,9 @@
   ],
   "files": [
     "src",
+    "packs",
+    "licenses",
+    "provenance.json",
     "systemd",
     "README.md",
     ".github/CHANGELOG.md",

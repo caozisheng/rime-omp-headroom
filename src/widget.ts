@@ -1,5 +1,7 @@
 // Widget rendering: the framed savings box shown next to the editor, the
-// stats/activity lines that fill it, and the `/headroom stats` text summary.
+// stats/activity lines that fill it, the merged pet side, and the
+// `/headroom stats` text summary.
+import type { ExtensionUiComponent } from "@oh-my-pi/pi-coding-agent";
 import {
   CONNECT_BACKOFF_MS,
   DASHBOARD_URL,
@@ -8,6 +10,8 @@ import {
   WIDGET_PLACEMENT,
   WIDGET_PRIORITY,
 } from "./config.ts";
+import { renderPetFrame } from "./pet/renderer.ts";
+import type { Frame } from "./pet-runtime.ts";
 import { shared, subagentSessionIds } from "./state.ts";
 import type { HeadroomCtx, HeadroomState, ProxyProjectStats } from "./types.ts";
 import {
@@ -121,8 +125,14 @@ export function localCompressionLine(state: HeadroomState): string {
   return `saved ${formatCompactTokens(saved)} · ${formatPct(pct)}${archiveSuffix}`;
 }
 
-export function renderWidget(ctx: HeadroomCtx, state: HeadroomState): void {
-  if (!ctx?.hasUI) return;
+export interface WidgetLines {
+  lines: string[];
+  /** Visible width of every line: inner + 2 border columns. */
+  width: number;
+}
+
+/** Build the framed Headroom box (title, stats rows, borders). Pure. */
+export function buildWidgetLines(state: HeadroomState): WidgetLines {
   const ready = state.enabled && state.proxyReady;
   // Rainbow + dashboard link IS the "ready" cue; when not ready the title goes
   // gray and the problem (truncated) rides next to it in the border.
@@ -185,13 +195,153 @@ export function renderWidget(ctx: HeadroomCtx, state: HeadroomState): void {
     ...rows,
     borderLine(inner, "╰", "╯", botLeftRaw, botLeftStyled, botRightRaw, botRightStyled),
   ];
-  // The extension config permits rightEditor and priority; this dev API's widget-options
-  // declaration is older and only models above/below editor placement.
-  ctx.ui?.setWidget?.(EXTENSION_KEY, lines, {
-    placement: WIDGET_PLACEMENT,
-    priority: WIDGET_PRIORITY,
-  } as never);
-  ctx.ui?.setStatus?.(EXTENSION_KEY, undefined);
+  return { lines, width: inner + 2 };
+}
+
+/**
+ * One component drawing the Headroom box on the left and the pet frame on the
+ * right. The box is rebuilt (and recolored) by every renderWidget pass; the
+ * pet side repaints independently on its own animation cadence. Rows are
+ * top-aligned; the pet hides itself when the remaining width cannot fit it.
+ */
+class MergedWidget implements ExtensionUiComponent {
+  private box: WidgetLines;
+  private petFrame: Frame | undefined;
+  private petOn = false;
+  private tui: { requestRender?(): void } | undefined;
+  private cached: { width: number; rows: string[] } | undefined;
+
+  constructor(box: WidgetLines) {
+    this.box = box;
+  }
+
+  /** Wire the TUI handle OMP hands the content factory (drives repaints). */
+  setTui(tui: { requestRender?(): void }): void {
+    this.tui = tui;
+  }
+
+  setHeadroom(box: WidgetLines): void {
+    this.box = box;
+    this.cached = undefined;
+    this.tui?.requestRender?.();
+  }
+
+  setPetFrame(frame: Frame | undefined): void {
+    this.petFrame = frame;
+    this.cached = undefined;
+    this.tui?.requestRender?.();
+  }
+
+  setPetOn(on: boolean): void {
+    if (this.petOn === on) return;
+    this.petOn = on;
+    this.cached = undefined;
+    this.tui?.requestRender?.();
+  }
+
+  render(width: number): readonly string[] {
+    if (this.cached && this.cached.width === width) return this.cached.rows;
+    const boxLines = this.box.lines;
+    const boxWidth = this.box.width;
+    // The pet sits flush against the box's right border; renderPetFrame
+    // returns raw frame lines and [] when the leftover width cannot fit
+    // the frame (pet hidden).
+    const petAvail = Math.max(0, width - boxWidth);
+    const petRows = this.petOn && this.petFrame ? renderPetFrame(this.petFrame, petAvail) : [];
+    const petWidth = petRows.length > 0 ? Math.max(...petRows.map((line) => line.length)) : 0;
+    const rowCount = Math.max(boxLines.length, petRows.length);
+    const out: string[] = [];
+    for (let i = 0; i < rowCount; i++) {
+      const boxPart = boxLines[i] ?? " ".repeat(boxWidth);
+      const petPart = i < petRows.length ? petRows[i].padEnd(petWidth) : " ".repeat(petWidth);
+      out.push(petWidth > 0 ? boxPart + petPart : boxPart);
+    }
+    this.cached = { width, rows: out };
+    return out;
+  }
+}
+
+// Pet bridge state is keyed by the UI object so separate extension instances
+// (and concurrent OMP sessions) cannot inherit each other's pet frame.
+type PetBridge = {
+  attached: boolean;
+  frame: Frame | undefined;
+  widget: MergedWidget | undefined;
+};
+
+const petBridges = new WeakMap<object, PetBridge>();
+
+function bridgeFor(ui: HeadroomCtx["ui"]): PetBridge {
+  const key = ui as object;
+  let bridge = petBridges.get(key);
+  if (bridge === undefined) {
+    bridge = { attached: false, frame: undefined, widget: undefined };
+    petBridges.set(key, bridge);
+  }
+  return bridge;
+}
+
+/** Enable the merged layout (pet side renders beside the Headroom box). */
+export function attachPet(ui: HeadroomCtx["ui"]): void {
+  bridgeFor(ui).attached = true;
+}
+
+/** Drop the merged layout and forget the mounted component (session reset). */
+export function detachPet(ui: HeadroomCtx["ui"]): void {
+  const bridge = bridgeFor(ui);
+  bridge.attached = false;
+  bridge.frame = undefined;
+  bridge.widget = undefined;
+}
+
+/** Current animation frame from the PetRuntime; undefined clears the pet side. */
+export function setPetFrame(frame: Frame | undefined, ui: HeadroomCtx["ui"]): void {
+  const bridge = bridgeFor(ui);
+  bridge.frame = frame;
+  bridge.widget?.setPetFrame(frame);
+}
+
+export function renderWidget(ctx: HeadroomCtx, state: HeadroomState): void {
+  if (!ctx?.hasUI) return;
+  const box = buildWidgetLines(state);
+  const ui = ctx.ui;
+  if (ui === undefined) return;
+  const bridge = bridgeFor(ui);
+  if (!bridge.attached) {
+    // The extension config permits rightEditor and priority; this dev API's widget-options
+    // declaration is older and only models above/below editor placement.
+    ui.setWidget?.(EXTENSION_KEY, box.lines, {
+      placement: WIDGET_PLACEMENT,
+      priority: WIDGET_PRIORITY,
+    } as never);
+    ui.setStatus?.(EXTENSION_KEY, undefined);
+    return;
+  }
+  // Merged layout: mount the component factory once per ctx.ui, then only
+  // push state updates — OMP keeps rendering the same component instance.
+  let widget = bridge.widget;
+  if (widget === undefined) {
+    widget = new MergedWidget(box);
+    if (bridge.frame !== undefined) widget.setPetFrame(bridge.frame);
+    const mounted = widget;
+    ui.setWidget?.(
+      EXTENSION_KEY,
+      (tui: { requestRender?(): void }) => {
+        mounted.setTui(tui);
+        return mounted;
+      },
+      {
+        placement: WIDGET_PLACEMENT,
+        priority: WIDGET_PRIORITY,
+      } as never,
+    );
+    bridge.widget = widget;
+  } else {
+    widget.setHeadroom(box);
+  }
+  // Unified switch: the pet side is visible exactly when Headroom is enabled.
+  widget.setPetOn(state.enabled);
+  ui.setStatus?.(EXTENSION_KEY, undefined);
 }
 
 export function commandSummary(state: HeadroomState): string {

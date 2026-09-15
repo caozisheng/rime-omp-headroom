@@ -7,7 +7,7 @@
 
 **omp-headroom** integrates the [Headroom](https://github.com/chopratejas/headroom) context-optimization proxy into [OMP (Oh My Pi)](https://github.com/can1357/oh-my-pi) coding sessions. Eligible provider payloads pass through a local compression layer only when Headroom proves a strict token reduction and the extension has persisted the original for retrieval.
 
-> **Current release: [`0.1.2`](https://github.com/DarkPhilosophy/omp-headroom/releases/tag/v0.1.2)** — fixes invalid Unicode payloads when session archives truncate astral characters or receive malformed UTF-16. GitHub is the canonical release and documentation source.
+> **Current release: [`0.2.0`](https://github.com/DarkPhilosophy/omp-headroom/releases/tag/v0.2.0)** — integrates the ASCII pet runtime into the Headroom widget, with `/pet` pack selection and unified `/headroom on|off` visibility control. GitHub is the canonical release and documentation source.
 
 ## How it works
 
@@ -28,7 +28,7 @@ flowchart LR
 - **Headroom-assisted OMP compaction (`/headroom compact`)** — unlike OMP's plain `/compact`, this command arms a one-shot `session.compacting` hook that atomically archives the complete discarded source to CCR and adds fidelity guidance before OMP creates its semantic LLM summary. If archival fails, OMP still compacts but the plugin does not claim a recoverable archive.
 - **Adaptive thresholds** — as the context window fills (>50%), the "worth compressing" bar drops linearly, down to 25% of the base at 90% usage. More compression exactly when space is scarce.
 - **Autoupdate** — the extension checks PyPI daily, upgrades `headroom-ai` in place, re-pins the ROCm torch build when needed, and restarts the proxy.
-- **Live widget** — savings, provider-native prompt-cache hit rate and traffic, request/tool/CCR counters, archive state, and per-session cost, rendered in a compact 5-row box.
+- **Live widget** — savings, provider-native prompt-cache hit rate and traffic, request/tool/CCR counters, archive state, per-session cost, and an optional ASCII pet rendered beside the statistics box.
 
 ## Install
 
@@ -109,8 +109,10 @@ Type `/headroom ` in OMP to open argument completion. Commands are intercepted b
 | Command                          | Purpose                                                                                                                                                                                                                  |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `/headroom` or `/headroom stats` | Show proxy, archive, and CCR compression statistics.                                                                                                                                                                     |
-| `/headroom on`                   | Enable Headroom for the current session.                                                                                                                                                                                 |
-| `/headroom off`                  | Disable Headroom and restore the full provider payload for the current session. Existing CCR archives remain retrievable.                                                                                                |
+| `/headroom on`                   | Enable Headroom and the integrated pet for the current session.                                                                                                                                                          |
+| `/headroom off`                  | Disable Headroom and hide the integrated pet for the current session. Existing CCR archives remain retrievable.                                                                                                         |
+| `/pet` or `/pet status`          | Show the current pet lifecycle, selected pack, and available packs.                                                                                                                                                      |
+| `/pet <pack>`                    | Select a bundled or discovered project/user ASCII pet pack.                                                                                                                                                              |
 | `/headroom compact`              | Run OMP semantic compaction with Headroom fidelity guidance and a recoverable CCR copy of the discarded source.                                                                                                          |
 | `/headroom clear session`        | Show the destructive-clear warning for current-session CCR files and archive counters. No data is deleted.                                                                                                              |
 | `/headroom clear session confirm` | Delete only the current session's owned CCR directory and archive-counter file. Other sessions and unowned legacy CCR files are retained.                                                                                |
@@ -156,9 +158,11 @@ In this example, `arch 3.3Mch ×3` means that **three automatic provider archive
 | bottom `$A · $B` | Current-session proxy savings, then lifetime proxy savings. | Loaded from proxy cost statistics. |
 | `ctx $N` | Current session's accumulated provider input cost. | Appears only when the value is greater than zero. |
 
-The rainbow, clickable `Headroom` title means the proxy is ready. A gray title shows `off`, `starting…`, installation activity, `offline`, or a truncated error. The top-right value is the first eight characters of the OMP session ID.
+The rainbow, clickable `Headroom` title means the proxy is ready. A gray title shows `off`, `starting…`, installation activity, `offline`, or a truncated error. When Headroom is enabled and the terminal is wide enough, the selected pet frame is rendered immediately to the right of the box with fixed left adjacency. `/headroom on|off` controls both compression and pet visibility; `/pet <pack>` only changes the selected artwork.
 
 Zero-value `arch` and `com` metrics are hidden. Archive totals are persisted per full OMP session ID and hydrated before the first widget render, so the unified `arch Nch ×M` metric survives process restarts and `omp --resume`. `/headroom version` prints the loaded source path and a 12-character SHA-256 build fingerprint for diagnosing stale or duplicate plugin loads.
+
+The bundled cat, dog, and parrot packs are validated ASCII-only JSON assets. Additional packs can be placed in `~/.omp/agent/pets` or `<session-cwd>/.omp/pets`; malformed packs are skipped with a warning. The pet side hides automatically when the available width cannot fit the full frame.
 
 CCR originals are stored under a validated full OMP session ID (`headroom-ccr/<sessionId>/<hash>.txt`) and are **not expired by wall-clock age**, because a resumable session may still reference them. Cleanup is explicit: `/headroom clear session` only displays the confirmation guard, while `/headroom clear session confirm` removes the current session's owned CCR files and persisted `arch` counters. It does not clear proxy request/lifetime statistics, other sessions, or legacy root-level CCR files whose ownership cannot be proven.
 

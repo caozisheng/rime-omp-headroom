@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 — 2026-09-15
+
+### Added
+
+- Integrated the Campy-derived ASCII pet runtime into the Headroom widget, including bundled cat, dog, and parrot packs, lifecycle/reaction animation, runtime pack discovery, and `/pet` selection/status commands.
+- Unified `/headroom on|off` control for compression, widget state, pet visibility, and animation timers.
+- Added asset provenance and the original Campy MIT license notice; npm package metadata now includes pet packs and license assets.
+
+### Changed
+
+- The widget uses a component factory to render the fixed-adjacency pet beside the existing Headroom statistics box without changing compression semantics.
+- Pet pack discovery is isolated per OMP UI/session and malformed external packs are skipped with a warning.
+
 ## 0.1.4 — 2026-07-27
 
 ### Added

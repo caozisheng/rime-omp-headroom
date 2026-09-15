@@ -76,6 +76,16 @@ import {
   VENV_PYTHON,
   WIDGET_PLACEMENT,
 } from "./config.ts";
+import type { PetPack, PetRuntimeContext } from "./pet-runtime.ts";
+import {
+  DEFAULT_PACKS,
+  defaultPackPaths,
+  discoverPacks,
+  loadPacks,
+  PetRuntime,
+  toolEndReaction,
+  toolStartReaction,
+} from "./pet-runtime.ts";
 import {
   effectiveProviderFormat,
   payloadHasRetrieveTool,
@@ -109,10 +119,13 @@ import {
 } from "./util.ts";
 import {
   archiveSavingsPercent,
+  attachPet,
   cacheUsageLine,
   commandSummary,
+  detachPet,
   localCompressionLine,
   renderWidget,
+  setPetFrame,
 } from "./widget.ts";
 
 export {
@@ -1819,6 +1832,33 @@ export default function headroomExtension(pi: ExtensionAPI) {
   let latestCtx: ExtensionContext | undefined;
   let rainbowTimer: NodeJS.Timeout | undefined;
   let widgetOnScreen = true; // updated by widget_layout event
+  let petRuntime: PetRuntime | undefined;
+  let petPacks: Map<string, PetPack> | undefined;
+  let petDiscoveredCwd: string | undefined;
+
+  // Pet wiring, lifted from rime-omp-pet: tui-mode guard, pack discovery
+  // deferred to session_start (project packs resolve against the session
+  // cwd), and frames pushed through the merged-widget bridge.
+  const petLog = () => ({
+    warn: (message: string, context?: Record<string, unknown>) =>
+      pi.logger?.warn?.(message, context),
+    error: (message: string, context?: Record<string, unknown>) =>
+      pi.logger?.error?.(message, context),
+  });
+
+  function ensurePetRuntime(ctx: ExtensionContext): PetRuntime | undefined {
+    if ((ctx as unknown as PetRuntimeContext).mode !== "tui") return undefined;
+    if (petRuntime !== undefined) return petRuntime;
+    const resolved = petPacks ?? loadPacks(DEFAULT_PACKS, petLog());
+    petRuntime = new PetRuntime(ctx as unknown as PetRuntimeContext, resolved, "cat", (frame) =>
+      setPetFrame(frame, ctx.ui),
+    );
+    attachPet(ctx.ui);
+    // Disabled at startup (flag/env): gray box, no pet, no animation timers —
+    // same state /headroom off leaves behind.
+    if (state.enabled) petRuntime.start();
+    return petRuntime;
+  }
 
   function startRainbowTimer() {
     if (rainbowTimer) return;
@@ -1933,9 +1973,28 @@ export default function headroomExtension(pi: ExtensionAPI) {
       // proxy per_project bucket and render it as (+N).
       subagentSessionIds.add(sid);
     }
+    // Resolve the session switch before creating the pet runtime: disabled
+    // sessions must not allocate animation timers.
+    state.enabled = pi.getFlag?.("headroom") !== false && process.env.OMP_HEADROOM_DISABLED !== "1";
+
+    // Mount immediately with the built-in cat so the widget exists before
+    // asynchronous pack discovery completes. Discovery then replaces the pack
+    // set and refreshes the same runtime without delaying the first render.
+    ensurePetRuntime(ctx);
+    renderWidget(ctx, state);
+    void (async () => {
+      const cwd = ctx?.cwd ?? process.cwd();
+      if (petPacks === undefined || cwd !== petDiscoveredCwd) {
+        petPacks = await discoverPacks(defaultPackPaths(cwd), undefined, petLog());
+        petDiscoveredCwd = cwd;
+        petRuntime?.updatePacks(petPacks);
+      }
+      // Discovery/attach completed after the synchronous render above —
+      // refresh the merged component with the discovered frame.
+      renderWidget(ctx, state);
+    })();
     // `before_provider_request` is the sole automatic compression path:
     // it transforms only the outbound provider payload, never the transcript.
-    state.enabled = pi.getFlag?.("headroom") !== false && process.env.OMP_HEADROOM_DISABLED !== "1";
     startRainbowTimer();
     renderWidget(ctx, state);
     void (async () => {
@@ -1950,10 +2009,89 @@ export default function headroomExtension(pi: ExtensionAPI) {
       renderWidget(ctx, state);
     })();
   });
+  // Pet lifecycle/reaction wiring, ported verbatim from rime-omp-pet. Every
+  // handler is guarded by ensurePetRuntime (non-tui contexts get undefined),
+  // so headroom's rpc/json/print sessions stay untouched.
+  pi.on("before_agent_start", (_event, ctx) => {
+    ensurePetRuntime(ctx)?.setLifecycle("thinking");
+  });
+  pi.on("agent_start", (_event, ctx) => {
+    ensurePetRuntime(ctx)?.setLifecycle("thinking");
+  });
+  pi.on("turn_start", (_event, ctx) => {
+    ensurePetRuntime(ctx)?.setLifecycle("thinking");
+  });
+  pi.on("tool_approval_requested", (_event, ctx) => {
+    ensurePetRuntime(ctx)?.setLifecycle("waiting-user");
+  });
+  pi.on("tool_approval_resolved", (event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    // A denied approval never starts a tool; the loop receives the denial
+    // as a tool result and continues generating, so the pet keeps thinking.
+    pet.setLifecycle(event.approved ? "tool-running" : "thinking");
+  });
+  pi.on("tool_execution_start", (event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    pet.setLifecycle("tool-running");
+    pet.react(toolStartReaction(event.toolName));
+  });
+  pi.on("tool_execution_end", (event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    pet.setLifecycle(event.isError ? "error" : "thinking");
+    pet.react(toolEndReaction(event.toolName, event.isError));
+  });
+  pi.on("session.compacting", (_event, ctx) => ensurePetRuntime(ctx)?.setLifecycle("compacting"));
+  pi.on("auto_compaction_start", (_event, ctx) =>
+    ensurePetRuntime(ctx)?.setLifecycle("compacting"),
+  );
+  pi.on("auto_compaction_end", (_event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    pet.react("context-compacted");
+    pet.setLifecycle("thinking");
+  });
+  // Pet reaction to compaction; the counting handler below is unaffected —
+  // OMP multicasts events to all registered handlers.
+  pi.on("session_compact", (_event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    pet.react("context-compacted");
+    pet.setLifecycle("thinking");
+  });
+  // turn_end fires between assistant turns inside a loop; the loop may still
+  // continue with tools, so settle signals come from agent_end/session_stop.
+  pi.on("agent_end", (event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    if (event.willContinue) {
+      pet.setLifecycle("thinking");
+      return;
+    }
+    pet.setLifecycle("idle");
+    pet.react("turn-succeeded");
+  });
+  pi.on("auto_retry_start", (_event, ctx) => {
+    const pet = ensurePetRuntime(ctx);
+    if (pet === undefined) return;
+    pet.setLifecycle("error");
+    pet.react("turn-failed");
+  });
+  // session_stop: a main-agent turn settled normally (not an interruption).
+  pi.on("session_stop", (_event, ctx) => {
+    ensurePetRuntime(ctx)?.setLifecycle("idle");
+  });
 
   pi.on("session_shutdown", async (_event, ctx) => {
     stopRainbowTimer();
-    // The proxy is a shared daemon (systemd unit or adopted orphan) serving
+    // Pet teardown mirrors rime-omp-pet: stop animation timers and clear the
+    // frame sink. The merged widget itself is unmounted below.
+    petRuntime?.dispose();
+    petRuntime = undefined;
+    if (ctx.ui !== undefined) detachPet(ctx.ui);
+    // The proxy is a shared daemon (systemd unit or adopted orphan) serving it
     // other agent sessions — never tear it down on session exit.
     ctx?.ui?.setWidget?.(EXTENSION_KEY, undefined, { placement: WIDGET_PLACEMENT as never });
     ctx?.ui?.setStatus?.(EXTENSION_KEY, undefined);
@@ -2320,11 +2458,15 @@ export default function headroomExtension(pi: ExtensionAPI) {
 
       if (action === "on") {
         state.enabled = true;
-        await ensureProxy(ctx, state, 25_000);
-        ctx.ui.notify("Headroom enabled.", "info");
+        const pet = ensurePetRuntime(ctx);
+        pet?.resume();
+        renderWidget(ctx, state);
+        ctx.ui.notify("Headroom enabled (compression + pet).", "info");
       } else if (action === "off") {
         state.enabled = false;
-        ctx.ui.notify("Headroom disabled for this session.", "info");
+        petRuntime?.suspend();
+        renderWidget(ctx, state);
+        ctx.ui.notify("Headroom disabled for this session (compression + pet).", "info");
       } else if (action === "compact") {
         await runHeadroomCompaction(ctx, state);
       } else if (action === "clear") {
@@ -2540,4 +2682,40 @@ export default function headroomExtension(pi: ExtensionAPI) {
     },
   };
   pi.registerCommand("headroom", headroomCommand);
+  pi.registerCommand("pet", {
+    description: "Select an ASCII pet pack or show the current pet status",
+    getArgumentCompletions: (prefix) => {
+      const normalized = String(prefix || "")
+        .trim()
+        .toLowerCase();
+      const ids = petRuntime?.packIds() ?? [];
+      const options = ["status", ...ids]
+        .filter((value) => value.startsWith(normalized))
+        .map((value) => ({
+          value,
+          label: value,
+          description:
+            value === "status" ? "Show current pet state and available packs" : `Select ${value}`,
+        }));
+      return options.length ? options : null;
+    },
+    handler: async (args, ctx) => {
+      const pet = ensurePetRuntime(ctx);
+      if (pet === undefined) return;
+      const command = String(args || "")
+        .trim()
+        .toLowerCase();
+      if (command === "" || command === "status") {
+        ctx.ui.notify(`${pet.status()} packs=[${pet.packIds().join(", ")}]`, "info");
+      } else if (pet.hasPack(command)) {
+        pet.selectPack(command);
+        renderWidget(ctx as never, state);
+      } else {
+        ctx.ui.notify(
+          `Unknown pack "${command}". Available: ${pet.packIds().join(", ") || "(none)"}`,
+          "warning",
+        );
+      }
+    },
+  });
 }
