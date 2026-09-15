@@ -2709,7 +2709,10 @@ export default function headroomExtension(pi: ExtensionAPI) {
         ctx.ui.notify(`${pet.status()} packs=[${pet.packIds().join(", ")}]`, "info");
       } else if (pet.hasPack(command)) {
         pet.selectPack(command);
-        renderWidget(ctx as never, state);
+        // Command contexts may expose a wrapper UI distinct from the session
+        // UI used to mount the merged component. Keep rendering against the
+        // session UI so `/pet` cannot replace it with a plain string widget.
+        renderWidget((latestCtx ?? ctx) as never, state);
       } else {
         ctx.ui.notify(
           `Unknown pack "${command}". Available: ${pet.packIds().join(", ") || "(none)"}`,

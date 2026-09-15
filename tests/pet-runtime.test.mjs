@@ -126,16 +126,20 @@ class FakeHost {
     return factory({ requestRender() {} });
   }
 
+  commandContext() {
+    if (!this.options.distinctCommandUi) return this.context;
+    return { ...this.context, ui: { ...this.context.ui } };
+  }
   async headroom(action) {
     const command = this.commands.get("headroom");
     expect(command, "headroom command").toBeDefined();
-    await command.handler(action, this.context);
+    await command.handler(action, this.commandContext());
   }
 
   async pet(action) {
     const command = this.commands.get("pet");
     expect(command, "pet command").toBeDefined();
-    await command.handler(action ?? "", this.context);
+    await command.handler(action ?? "", this.commandContext());
   }
 }
 
@@ -147,6 +151,16 @@ describe("merged pet runtime", () => {
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
     pumpable.timers.clear();
+  });
+  test("keeps the merged widget when /pet receives a distinct command UI", async () => {
+    const host = new FakeHost({ distinctCommandUi: true });
+    await host.load();
+    await host.emit("session_start");
+    await host.settle();
+
+    await host.pet("dog");
+
+    expect(host.mountedWidget().render(80).join("\n")).toContain("/\\       /\\");
   });
   test("registers /pet as the pack-selection command", async () => {
     const host = new FakeHost();
