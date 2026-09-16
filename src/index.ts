@@ -1853,7 +1853,7 @@ export default function headroomExtension(pi: ExtensionAPI) {
     petRuntime = new PetRuntime(ctx as unknown as PetRuntimeContext, resolved, "cat", (frame) =>
       setPetFrame(frame, ctx.ui),
     );
-    attachPet(ctx.ui);
+    attachPet(ctx.ui, state);
     // Disabled at startup (flag/env): gray box, no pet, no animation timers —
     // same state /headroom off leaves behind.
     if (state.enabled) petRuntime.start();
@@ -2090,7 +2090,7 @@ export default function headroomExtension(pi: ExtensionAPI) {
     // frame sink. The merged widget itself is unmounted below.
     petRuntime?.dispose();
     petRuntime = undefined;
-    if (ctx.ui !== undefined) detachPet(ctx.ui);
+    if (ctx.ui !== undefined) detachPet(ctx.ui, state);
     // The proxy is a shared daemon (systemd unit or adopted orphan) serving it
     // other agent sessions — never tear it down on session exit.
     ctx?.ui?.setWidget?.(EXTENSION_KEY, undefined, { placement: WIDGET_PLACEMENT as never });

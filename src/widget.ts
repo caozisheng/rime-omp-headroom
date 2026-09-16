@@ -2,6 +2,7 @@
 // stats/activity lines that fill it, the merged pet side, and the
 // `/headroom stats` text summary.
 import type { ExtensionUiComponent } from "@oh-my-pi/pi-coding-agent";
+import { Ellipsis, truncateToWidth, visibleWidth } from "@oh-my-pi/pi-tui";
 import {
   CONNECT_BACKOFF_MS,
   DASHBOARD_URL,
@@ -241,25 +242,35 @@ class MergedWidget implements ExtensionUiComponent {
 
   render(width: number): readonly string[] {
     if (this.cached && this.cached.width === width) return this.cached.rows;
-    const boxLines = this.box.lines;
-    const boxWidth = this.box.width;
-    // Keep a selected pack visible even when the panel budget is narrower than
-    // its artwork. The host clips the component at the panel boundary; hiding
-    // the pet here made wider bundled packs vanish entirely after selection.
+    const sourceBox = this.box.lines;
     const frameWidth = this.petFrame?.lines[0]?.length ?? 0;
-    const petAvail = Math.max(width - boxWidth - 1, frameWidth);
-    const petRows = this.petOn && this.petFrame ? renderPetFrame(this.petFrame, petAvail) : [];
-    const petWidth = petRows.length > 0 ? Math.max(...petRows.map((line) => line.length)) : 0;
+    const petRows =
+      this.petOn && this.petFrame && frameWidth > 0
+        ? renderPetFrame(this.petFrame, frameWidth)
+        : [];
+    const minBoxWidth = Math.min(this.box.width, 18);
+    const petWidth =
+      petRows.length > 0 ? Math.min(frameWidth, Math.max(0, width - minBoxWidth)) : 0;
+    const boxWidth = petWidth > 0 ? Math.max(minBoxWidth, width - petWidth) : this.box.width;
+    const boxLines = sourceBox.map((line) => fitBoxLine(line, boxWidth));
     const rowCount = Math.max(boxLines.length, petRows.length);
     const out: string[] = [];
     for (let i = 0; i < rowCount; i++) {
       const boxPart = boxLines[i] ?? " ".repeat(boxWidth);
-      const petPart = i < petRows.length ? petRows[i].padEnd(petWidth) : " ".repeat(petWidth);
-      out.push(petWidth > 0 ? boxPart + petPart : boxPart);
+      const petPart =
+        i < petRows.length && petWidth > 0 ? petRows[i].slice(0, petWidth).padEnd(petWidth) : "";
+      out.push(boxPart + petPart);
     }
     this.cached = { width, rows: out };
     return out;
   }
+}
+
+function fitBoxLine(line: string, width: number): string {
+  if (width <= 0) return "";
+  if (visibleWidth(line) <= width) return line;
+  const close = line.endsWith("╮") ? "╮" : line.endsWith("╯") ? "╯" : "│";
+  return `${truncateToWidth(line, Math.max(0, width - 1), Ellipsis.Omit)}${close}`;
 }
 
 // Pet bridge state is keyed by the UI object so separate extension instances
@@ -271,6 +282,7 @@ type PetBridge = {
 };
 
 const petBridges = new WeakMap<object, PetBridge>();
+const renderTargets = new WeakMap<object, HeadroomCtx["ui"]>();
 
 function bridgeFor(ui: HeadroomCtx["ui"]): PetBridge {
   const key = ui as object;
@@ -282,17 +294,19 @@ function bridgeFor(ui: HeadroomCtx["ui"]): PetBridge {
   return bridge;
 }
 
-/** Enable the merged layout (pet side renders beside the Headroom box). */
-export function attachPet(ui: HeadroomCtx["ui"]): void {
+/** Enable the merged layout and bind this state to its session UI. */
+export function attachPet(ui: HeadroomCtx["ui"], state?: HeadroomState): void {
   bridgeFor(ui).attached = true;
+  if (state !== undefined) renderTargets.set(state as object, ui);
 }
 
 /** Drop the merged layout and forget the mounted component (session reset). */
-export function detachPet(ui: HeadroomCtx["ui"]): void {
+export function detachPet(ui: HeadroomCtx["ui"], state?: HeadroomState): void {
   const bridge = bridgeFor(ui);
   bridge.attached = false;
   bridge.frame = undefined;
   bridge.widget = undefined;
+  if (state !== undefined) renderTargets.delete(state as object);
 }
 
 /** Current animation frame from the PetRuntime; undefined clears the pet side. */
@@ -303,10 +317,10 @@ export function setPetFrame(frame: Frame | undefined, ui: HeadroomCtx["ui"]): vo
 }
 
 export function renderWidget(ctx: HeadroomCtx, state: HeadroomState): void {
-  if (!ctx?.hasUI) return;
+  const targetUi = renderTargets.get(state as object) ?? ctx.ui;
+  if (!ctx?.hasUI || targetUi === undefined) return;
   const box = buildWidgetLines(state);
-  const ui = ctx.ui;
-  if (ui === undefined) return;
+  const ui = targetUi;
   const bridge = bridgeFor(ui);
   if (!bridge.attached) {
     // The extension config permits rightEditor and priority; this dev API's widget-options
@@ -318,8 +332,6 @@ export function renderWidget(ctx: HeadroomCtx, state: HeadroomState): void {
     ui.setStatus?.(EXTENSION_KEY, undefined);
     return;
   }
-  // Merged layout: mount the component factory once per ctx.ui, then only
-  // push state updates — OMP keeps rendering the same component instance.
   let widget = bridge.widget;
   if (widget === undefined) {
     widget = new MergedWidget(box);
@@ -340,7 +352,6 @@ export function renderWidget(ctx: HeadroomCtx, state: HeadroomState): void {
   } else {
     widget.setHeadroom(box);
   }
-  // Unified switch: the pet side is visible exactly when Headroom is enabled.
   widget.setPetOn(state.enabled);
   ui.setStatus?.(EXTENSION_KEY, undefined);
 }

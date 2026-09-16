@@ -98,6 +98,10 @@ class FakeHost {
     }
     return this._context;
   }
+  eventContext() {
+    if (!this.options.distinctEventUi) return this.context;
+    return { ...this.context, ui: { ...this.context.ui } };
+  }
 
   async load() {
     const { default: headroomExtension } = await import("../src/index.ts");
@@ -114,7 +118,8 @@ class FakeHost {
   async emit(event, payload = {}) {
     const list = this.handlers.get(event);
     expect(list, `handler for ${event}`).toBeDefined();
-    for (const handler of list ?? []) await handler({ type: event, ...payload }, this.context);
+    for (const handler of list ?? [])
+      await handler({ type: event, ...payload }, this.eventContext());
   }
 
   /** Mount the merged widget from the latest setWidget(factory) call. */
@@ -295,6 +300,17 @@ describe("merged pet runtime", () => {
     await host.pet("parrot");
     const parrotRows = host.mountedWidget().render(48);
     expect(parrotRows.join("\n")).toContain(".---.");
+  });
+  test("keeps the pet visible when working events use a wrapper UI", async () => {
+    const host = new FakeHost({ distinctEventUi: true });
+    await host.load();
+    await host.emit("session_start");
+    await host.settle();
+    await host.emit("tool_execution_start", { toolCallId: "1", toolName: "bash" });
+
+    const rows = host.mountedWidget().render(40);
+    expect(rows).toHaveLength(5);
+    expect(rows.join("\n")).toContain("/\\");
   });
 
   test("settles back to lifecycle after a non-loop reaction animation completes", async () => {
