@@ -1,57 +1,47 @@
-# omp-headroom
+# rime-omp-headroom
 
-`omp-headroom` is an [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi) extension that combines local Headroom context compression with a live statistics widget and an animated ASCII pet.
+`rime-omp-headroom` is an independent fork of the original `omp-headroom` extension for [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi). The changes in this repository are maintained here and have not been submitted upstream.
 
-This repository is a maintained fork of the upstream `omp-headroom` extension. It includes the Headroom integration, CCR session archives, proxy lifecycle management, and the merged pet runtime in one installable OMP plugin.
+This fork combines two systems in one OMP extension:
+
+- local Headroom context compression, retrievable CCR session archives, proxy lifecycle management, and live statistics;
+- an animated ASCII pet that reacts to the current OMP session state and shares the Headroom widget.
+
+This repository is installed directly from source. It is not distributed through a managed plugin channel.
 
 ## Features
 
-### Context optimization
+### Headroom context optimization
 
 - Routes eligible provider payloads through the local [Headroom](https://github.com/chopratejas/headroom) proxy.
-- Compresses tool-heavy context only when the result is strictly smaller and proxy metrics confirm the reduction.
-- Preserves user messages and the live conversation tail.
-- Stores complete replaced prefixes in local CCR archives and exposes retrieval through the registered `headroom_retrieve` tool.
-- Supports Anthropic Messages and OpenAI Responses/Chat-style payloads used by OMP.
-- Tracks provider, tool-result, archive, cache, request, token, and cost statistics per OMP session.
-- Includes adaptive thresholds, retryable proxy startup, version reconciliation, service management, and GPU-aware Headroom installation.
+- Accepts a compressed result only when proxy metrics confirm a strict reduction and the outgoing payload is smaller.
+- Preserves user messages and a configurable live conversation tail.
+- Stores replaced transcript prefixes in local content-addressed CCR archives.
+- Registers `headroom_retrieve` so an archived original can be recovered by hash.
+- Supports the Anthropic Messages and OpenAI Responses/Chat payload shapes used by OMP.
+- Tracks provider, tool-result, archive, cache, request, token, and cost statistics per session.
+- Provisions and maintains the Python `headroom-ai` environment, with optional ROCm or CUDA acceleration.
 
-### Integrated ASCII pets
+### Integrated ASCII pet
 
-- One merged widget renders the Headroom statistics box and the selected pet side by side.
-- Bundled packs: `cat`, `dog`, and `parrot`.
-- Lifecycle and reaction animations cover thinking, tool execution, waiting for approval, success, failure, compaction, and interruption.
-- Packs are discovered from the package, the user pack directory, and the current project.
-- Invalid external packs are ignored with a warning instead of breaking the extension.
-- Pet visibility and animation are controlled by the unified `/headroom on|off` switch.
-- The widget keeps the selected pet adjacent to the Headroom box and adapts to the available terminal width.
+- Renders the selected pet beside the Headroom statistics box in one widget.
+- Includes `cat`, `dog`, and `parrot` packs.
+- Reacts to thinking, tool execution, approval waits, success, failure, compaction, and interruption.
+- Discovers additional packs from user and project directories.
+- Ignores malformed external packs with a warning instead of failing the extension.
+- Uses the same `/headroom on|off` session switch as compression and the statistics widget.
 
 ## Requirements
 
-- OMP 16.4 or newer; OMP 17 and 18 are supported by the current package.
-- Bun for development and local linking.
-- Python for the Headroom proxy environment. The extension provisions its own environment; a system Python installation is still required.
-- Optional AMD ROCm or NVIDIA CUDA support when a compatible PyTorch build is available. CPU operation remains supported.
+- OMP 16.4 or newer.
+- [Git](https://git-scm.com/) to clone and update this repository.
+- [Bun](https://bun.sh/) to install the extension dependencies.
+- Python to create the managed Headroom environment.
+- Optional: a compatible AMD ROCm or NVIDIA CUDA environment. CPU operation is supported.
 
-## Installation
+## Install from source
 
-### Marketplace or package installation
-
-Install the published plugin through OMP's plugin manager:
-
-```text
-omp plugin install omp-headroom
-```
-
-Verify the installation:
-
-```text
-omp plugin doctor
-```
-
-The plugin manifest loads `src/index.ts` and packages the bundled pet assets under `packs/`.
-
-### Development checkout
+Choose a permanent checkout location. OMP links to this directory in place, so moving or deleting it later breaks the plugin link.
 
 ```bash
 git clone https://github.com/caozisheng/rime-omp-headroom.git
@@ -61,36 +51,63 @@ omp plugin link .
 omp plugin doctor
 ```
 
-`omp plugin link .` points OMP at the checkout. It does not copy the extension into the user extension directory.
+Start a new OMP session after linking the checkout. On first use, the extension creates its Python environment and installs `headroom-ai`; this can take longer than later starts.
 
-If another plugin supplies the old standalone pet runtime, remove that extension from `~/.omp/config.json`; this repository now provides the pet runtime itself.
+If OMP already loads a standalone pet extension, remove or disable that extension first. This fork owns the pet commands, lifecycle hooks, timers, and merged widget itself.
 
-## Commands
+### Update this fork
 
-Commands are entered in an OMP session. Type `/headroom ` or `/pet ` to use OMP argument completion.
+Update the TypeScript extension and bundled pet assets from the Git checkout:
 
-### Headroom
+```bash
+cd /path/to/rime-omp-headroom
+git pull --ff-only
+bun install
+omp plugin doctor
+```
+
+Then run `/reload-plugins` in OMP or start a new session.
+
+`/headroom update` is different: it updates the managed Python `headroom-ai` backend while preserving the selected backend. It does **not** pull this Git repository or update the TypeScript extension.
+
+### Remove the source link
+
+The linked checkout is registered under the package name `omp-headroom` (from `package.json`), not the repository name. Remove it with:
+
+```bash
+omp plugin uninstall omp-headroom
+```
+
+Delete the checkout directory only after OMP no longer references it.
+
+## Usage
+
+Commands are entered inside an OMP session. Type `/headroom ` or `/pet ` to use argument completion.
+
+### Headroom commands
 
 | Command | Description |
 | --- | --- |
 | `/headroom stats` | Show proxy, compression, cache, archive, CCR, and cost statistics. |
-| `/headroom on` | Enable compression, the Headroom widget, pet visibility, and pet animation. |
-| `/headroom off` | Disable compression and stop pet animation while retaining the status box. |
-| `/headroom compact` | Run the OMP semantic compaction path with a Headroom CCR archive. |
-| `/headroom clear session confirm` | Remove the current session's owned CCR archives and archive counters. |
-| `/headroom test tool` | Run the real proxy compression surface. |
-| `/headroom test compaction` | Open the native OMP compaction fixture. |
+| `/headroom on` | Enable compression, the Headroom widget, and pet animation for this session. |
+| `/headroom off` | Disable compression and suspend the pet for this session. |
+| `/headroom compact` | Run OMP semantic compaction with a retrievable Headroom CCR archive. |
+| `/headroom clear session confirm` | Delete CCR archives and archive counters owned by the current session. |
+| `/headroom test tool` | Exercise the real proxy compression path. |
+| `/headroom test compaction` | Open an isolated native OMP compaction fixture. |
 | `/headroom start` | Start or connect to the Headroom proxy. |
-| `/headroom stop` | Stop a proxy process owned by this extension. |
-| `/headroom restart` | Restart an extension-owned proxy. |
-| `/headroom reconnect` | Retry proxy connection after bounded startup attempts are exhausted. |
-| `/headroom service ...` | Install, remove, inspect, or render the proxy service definition. |
-| `/headroom config` | Show effective Headroom settings. |
-| `/headroom set <key> <value>` | Change a supported setting for the current configuration. |
-| `/headroom version` | Show the installed extension and proxy versions. |
-| `/headroom update` | Update Headroom while preserving the selected backend. |
+| `/headroom stop` | Stop the managed proxy. |
+| `/headroom restart` | Restart the managed proxy. |
+| `/headroom reconnect` | Retry the proxy connection after automatic retries are exhausted. |
+| `/headroom service ...` | Install, remove, inspect, or render the user-service definition. |
+| `/headroom config` | Show effective settings and their sources. |
+| `/headroom set <key> <value>` | Persist a supported setting to `~/.omp/agent/headroom.yml`. |
+| `/headroom version` | Show extension, proxy, binary, configuration, and log information. |
+| `/headroom debug` | Show sizing-log and proxy diagnostics. |
+| `/headroom update` | Update only the managed Python `headroom-ai` backend. |
+| `/headroom help` | List the complete command surface. |
 
-### Pets
+### Pet commands
 
 ```text
 /pet
@@ -100,39 +117,55 @@ Commands are entered in an OMP session. Type `/headroom ` or `/pet ` to use OMP 
 /pet parrot
 ```
 
-`/pet` and `/pet status` report the selected pack, lifecycle, current action, and discovered pack IDs. Pack selection is independent of the unified visibility switch; use `/headroom on` or `/headroom off` to show or hide the pet.
+`/pet` and `/pet status` report the selected pack, lifecycle, current action, and discovered pack IDs. `/pet <pack-id>` changes the pack for the current session. Use `/headroom on` or `/headroom off` to enable or suspend the integrated pet.
 
 ## Configuration
 
-Headroom settings can be configured through the OMP configuration system and environment variables. Environment variables take precedence over the user configuration file.
+The extension reads flat YAML settings from:
 
-Common settings include:
+```text
+~/.omp/agent/headroom.yml
+```
 
-- proxy URL and port;
-- compression enablement;
-- minimum eligible tool-output size;
-- protected recent-message count;
-- session archive enablement and live-tail size;
-- model, provider, and service installation options.
+Every YAML setting also has an `OMP_HEADROOM_*` environment variable. Environment variables override YAML; YAML overrides the built-in default.
 
-Inspect the effective values with:
+Inspect the exact supported keys, effective values, and sources with:
 
 ```text
 /headroom config
 ```
 
-The extension does not add a separate pet alignment or pet visibility setting. Pet behavior is intentionally tied to the Headroom session switch.
+Persist a supported key with:
+
+```text
+/headroom set <key> <value>
+```
+
+The change takes effect after `/reload-plugins` or in a new session. If the corresponding environment variable is set, it continues to override the saved YAML value.
+
+Common settings control:
+
+- the Headroom binary path;
+- provider and tool-output compression thresholds;
+- adaptive threshold scaling;
+- sizing diagnostics;
+- session archive enablement and retained live-message count;
+- archive size thresholds and storage paths.
+
+Pet visibility is intentionally tied to the Headroom session switch; there is no separate visibility or alignment setting.
 
 ### Custom pet packs
 
-Place JSON packs in either location:
+Place JSON packs in either directory:
 
 ```text
 ~/.omp/agent/pets/
 <project>/.omp/pets/
 ```
 
-A pack must use the validated fixed-size ASCII format used by the bundled assets. The project directory has higher precedence than the user directory; malformed files are skipped with a warning. After starting a session, select a discovered pack with:
+Project packs take precedence over user packs, which take precedence over bundled packs with the same ID. Packs must use the validated, fixed-size printable-ASCII format used in `packs/`. Malformed files are skipped with a warning. New packs are discovered when OMP starts the extension.
+
+Select a discovered pack with:
 
 ```text
 /pet <pack-id>
@@ -140,18 +173,19 @@ A pack must use the validated fixed-size ASCII format used by the bundled assets
 
 ## Widget behavior
 
-The widget is a component factory rather than a static string list, so animation frames can request repaint without remounting the Headroom box. The Headroom box remains the left-hand side; the selected pet is placed immediately after its right border.
-
-When the host supplies a narrow widget width, the component constrains the pet side to the available width instead of replacing the merged component with a plain Headroom widget. The host may clip the artwork at the panel boundary, but lifecycle changes and the Headroom rainbow remain active.
+The Headroom box and pet are rendered by one component. Animation frames request repaint without replacing the statistics widget, and the layout adapts to the width supplied by OMP. Very narrow panels may clip artwork at the panel boundary, but lifecycle updates and the Headroom rainbow continue to run.
 
 ## Local data and privacy
 
-- CCR originals are written to the local OMP data directory under a validated session ID.
-- Archive files are addressed by content hash and are never sent to the provider by the extension itself.
-- Compression diagnostics and widget statistics contain counts, sizes, percentages, and costs; they do not intentionally log message contents.
-- `/headroom clear session confirm` removes only archives and archive counters owned by the current valid session.
+- The Python environment, CCR archives, archive counters, and logs live under the local OMP data directory.
+- CCR originals are stored under a validated OMP session ID and addressed by content hash.
+- The extension does not send archived originals back to a provider unless the agent explicitly retrieves and uses them.
+- Diagnostics and widget statistics contain sizes, counts, percentages, costs, and status data; they do not intentionally log message contents.
+- `/headroom clear session confirm` removes only the current session's owned CCR archives and archive counters.
 
 ## Development
+
+Install dependencies and run the repository checks:
 
 ```bash
 bun install
@@ -161,36 +195,30 @@ bun run test
 bun run scan
 ```
 
-The complete verification command is:
+Run all checks with:
 
 ```bash
 bun run verify
 ```
 
-Create a package preview with:
-
-```bash
-npm pack --dry-run --json
-```
-
-The published package must include `packs/`, `licenses/`, and `provenance.json` in addition to the extension source and service template.
+The checkout itself is the development installation. After changing extension code, run `/reload-plugins` in OMP or start a new session.
 
 ## Project layout
 
 ```text
-src/index.ts          OMP extension lifecycle, commands, hooks, and proxy integration
-src/widget.ts         Headroom statistics widget and merged pet component
+src/index.ts          OMP lifecycle hooks, commands, and proxy integration
+src/widget.ts         Headroom statistics and merged pet widget
 src/pet-runtime.ts    Pack discovery and per-session pet runtime adapter
-src/pet/               Pack validation, state resolution, animation, and rendering
-packs/                 Bundled cat, dog, and parrot JSON assets
-tests/                 Compression, archive, widget, and pet regression tests
-docs/                  Integration design notes
-provenance.json        Artwork source and transformation record
-licenses/              Third-party asset licenses
-```
+src/pet/              Pack validation, state resolution, animation, and rendering
+packs/                Bundled cat, dog, and parrot assets
+tests/                Compression, archive, widget, and pet regression tests
+systemd/              Optional user-service template
+provenance.json       Pet artwork sources and transformation record
+licenses/             Third-party asset licenses
 
 ## Credits and license
 
+- The original `omp-headroom` project provided the base for this independent fork.
 - [Headroom](https://github.com/chopratejas/headroom) provides the compression proxy and is licensed under Apache-2.0.
 - [Oh My Pi](https://github.com/can1357/oh-my-pi) provides the host coding-agent runtime.
 - Bundled cat and dog artwork is derived from [Campy / OpenCode Pets](https://github.com/dropdevrahul/campy). See [`provenance.json`](provenance.json) and [`licenses/CAMPY-MIT.txt`](licenses/CAMPY-MIT.txt).
