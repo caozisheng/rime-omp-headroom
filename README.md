@@ -1,5 +1,7 @@
 # rime-omp-headroom
 
+<img width="505" height="103" alt="image" src="https://github.com/user-attachments/assets/ffd46780-190e-48e0-a4a7-87878096c4ff" />
+
 `rime-omp-headroom` is an independent fork of the original `omp-headroom` extension for [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi). The changes in this repository are maintained here and have not been submitted upstream.
 
 This fork combines two systems in one OMP extension:
