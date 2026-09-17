@@ -37,7 +37,7 @@
 - 事件多播：同一事件名可注册多个 handler，pet 的 handler 与 headroom 已有的
   `session_compact` 等并存不冲突。
 - 安装侧 omp 18.1.21 的 `rightEditor` 面板宽度语义无法从本仓 dev 依赖（17.0.6）核实，
-  合成布局对任意传入宽度自适应；140 列默认猫在窄面板中由宿主裁剪。
+  合成布局对任意传入宽度自适应；70 列默认猫在窄面板中由宿主裁剪。
 
 ## 3. 目录与文件
 
@@ -105,7 +105,7 @@ omp-headroom/
 - 模块级桥：`WeakMap<ui, PetBridge>`，按 UI 对象隔离 extension 实例与并发会话。
 - `renderWidget(ctx, state)` 双路径：无宠物桥时维持字符串 widget；有桥时首次用工厂挂载，之后仅更新同一组件实例。
   工厂内容不受 10 行截断限制；盒 ≤6 行 + 宠物 5 行。
-宽度自适应：默认猫使用 140 列运动舞台；完整显示需要在 Headroom 盒右侧提供 140 列。合成 widget 不因面板宽度不足而截断或丢弃已选宠物帧；宠物放不下时返回 `[]` 的行为仅适用于 standalone `renderPetFrame` 的显式宽度预算。
+宽度自适应：默认猫使用 70 列运动舞台；完整显示需要在 Headroom 盒右侧提供 70 列。合成 widget 不因面板宽度不足而截断或丢弃已选宠物帧；宠物放不下时返回 `[]` 的行为仅适用于 standalone `renderPetFrame` 的显式宽度预算。
 宠物不进行右对齐或其它 align 计算。
 
 ## 6. 统一 on/off（src/index.ts）
@@ -144,9 +144,9 @@ react("context-compacted") + thinking（与 headroom 既有 session_compact 计�
 
 ## 9. 测试
 
-- `tests/pet-domain.test.mjs`：bundled packs 校验、140 列猫的大幅横向运动、Campy 词汇、
+- `tests/pet-domain.test.mjs`：bundled packs 校验、70 列猫的大幅横向运动、Campy 词汇、
   reaction 优先级/TTL、animator 启停、standalone renderer 窄终端隐藏/无控制序列。
-- `tests/pet-runtime.test.mjs`：FakeHost 直接驱动真实 wiring（假 scheduler、组件工厂），覆盖 140 列猫完整合成渲染、lifecycle 切换、reaction 播放与回落、suspend/resume、pack 切换/丢失回退、项目 cwd 发现、坏包隔离与多实例隔离。
+- `tests/pet-runtime.test.mjs`：FakeHost 直接驱动真实 wiring（假 scheduler、组件工厂），覆盖 70 列猫完整合成渲染、lifecycle 切换、reaction 播放与回落、suspend/resume、pack 切换/丢失回退、项目 cwd 发现、坏包隔离与多实例隔离。
 - `tests/widget.test.mjs`：现有断言迁移到工厂内容——实例化工厂、`render(width)`，断言
   左侧盒行与右侧宠物帧并存、`enabled=false` 时无宠物行且盒显示 off。
 - 统一开关回归：`/headroom off` 后 renderWidget 输出不含宠物帧，`on` 后恢复。
@@ -165,7 +165,7 @@ react("context-compacted") + thinking（与 headroom 既有 session_compact 计�
 
 | 风险 | 缓解 |
 | --- | --- |
-| omp 18 `rightEditor` 面宽语义未知 | 布局保留完整宠物帧并允许宿主裁剪；完整默认猫动作需要盒右侧 140 列 |
+| omp 18 `rightEditor` 面宽语义未知 | 布局保留完整宠物帧并允许宿主裁剪；完整默认猫动作需要盒右侧 70 列 |
 | 工厂组件与 17.0.6 类型声明不符 | 沿用现有 `as never` cast（renderWidget 已这么做） |
 | 双 handler 同名事件 | OMP 事件多播，pet 侧自守卫 `mode==="tui"`；无共享可变状态 |
 | 动画/彩虹双定时器叠加渲染 | `requestRender` 由 TUI 合并帧；彩虹 180ms、宠物帧 100–900ms，量级不变 |
