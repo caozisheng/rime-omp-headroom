@@ -17,7 +17,6 @@ describe("bundled pet packs", () => {
   test("use the Campy cat and dog animation vocabulary with attribution", () => {
     expect(catPack.metadata?.license).toBe("MIT");
     expect(catPack.metadata?.source).toContain("dropdevrahul/campy");
-    expect(catPack.actions.idle.frames[0]?.lines[0]).toBe("  /\\_____/\\   ");
     expect(dogPack.metadata?.license).toBe("MIT");
     expect(dogPack.metadata?.source).toContain("dropdevrahul/campy");
     expect(dogPack.actions.idle.frames[0]?.lines[0]).toBe(" /\\       /\\    ");
@@ -26,6 +25,24 @@ describe("bundled pet packs", () => {
   test("validate every bundled pack", () => {
     expect(validatePetPack(catPack).ok).toBe(true);
     expect(validatePetPack(dogPack).ok).toBe(true);
+  });
+
+  test("ships the cat on a 140-column stage with large horizontal motion", () => {
+    expect(catPack.width).toBe(140);
+    expect(validatePetPack(catPack).ok).toBe(true);
+
+    const leadingColumn = (frame) => {
+      const occupiedColumns = frame.lines
+        .filter((line) => line.trim().length > 0)
+        .map((line) => line.length - line.trimStart().length);
+      return Math.min(...occupiedColumns);
+    };
+    const happyTravel = catPack.actions.happy.frames.map(leadingColumn);
+    expect(Math.max(...happyTravel) - Math.min(...happyTravel)).toBeGreaterThanOrEqual(100);
+
+    const idle = catPack.actions.idle.frames[0];
+    expect(renderPetFrame(idle, 140)).toEqual(idle.lines);
+    expect(renderPetFrame(idle, 139)).toEqual([]);
   });
   test("validate the shipped parrot config-file pack and its action coverage", () => {
     const result = validatePetPack(parrotPack);
@@ -175,6 +192,8 @@ describe("animation", () => {
     scheduled.shift()?.();
     expect(callbacks).toContain("wake:2");
     scheduled.shift()?.();
+    expect(callbacks).toContain("wake:3");
+    scheduled.shift()?.();
     expect(callbacks.at(-1)).toBe("complete:wake");
   });
 
@@ -207,12 +226,12 @@ describe("animation", () => {
 
 describe("renderer", () => {
   test("renders frame rows flush-left and hides when too narrow", () => {
-    const frame = catPack.actions.idle.frames[0];
+    const frame = dogPack.actions.idle.frames[0];
     expect(frame).toBeDefined();
     const rendered = renderPetFrame(frame, 20);
     expect(rendered).toHaveLength(5);
     expect(rendered[0]).toBe(frame.lines[0]);
-    expect(renderPetFrame(frame, 13)).toEqual([]);
+    expect(renderPetFrame(frame, 15)).toEqual([]);
   });
 
   test("emits no terminal control sequences", () => {

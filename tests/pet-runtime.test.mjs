@@ -157,6 +157,17 @@ describe("merged pet runtime", () => {
     for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
     pumpable.timers.clear();
   });
+  test("preserves the complete 140-column cat frame when the panel is wide enough", async () => {
+    const host = new FakeHost();
+    await host.load();
+    await host.emit("session_start");
+    await host.settle();
+
+    const frame = catPack.actions.idle.frames[0];
+    expect(frame.lines[0]).toHaveLength(140);
+    const rows = host.mountedWidget().render(158);
+    expect(rows.slice(0, 5).map((line) => line.slice(-140))).toEqual(frame.lines);
+  });
   test("keeps the merged widget when /pet receives a distinct command UI", async () => {
     const host = new FakeHost({ distinctCommandUi: true });
     await host.load();
@@ -190,7 +201,13 @@ describe("merged pet runtime", () => {
 
     await host.headroom("on");
     expect(pumpable.timers.size).toBeGreaterThan(0);
-    expect(host.mountedWidget().render(80).join("\n")).toContain("/\\_____/\\");
+    expect(
+      host
+        .mountedWidget()
+        .render(158)
+        .slice(0, 5)
+        .map((line) => line.slice(-140)),
+    ).toEqual(catPack.actions.idle.frames[0].lines);
   });
 
   test("mounts the merged widget and renders the cat beside the Headroom box", async () => {
@@ -200,25 +217,18 @@ describe("merged pet runtime", () => {
     await host.settle();
 
     const widget = host.mountedWidget();
-    const rendered = widget.render(80);
-    // The Headroom box keeps its exact framed shape; the cat rides flush
-    // against its right border (fixed adjacency, no align config).
+    const rendered = widget.render(158);
     expect(rendered.length).toBeGreaterThanOrEqual(5);
-    const boxWidth = rendered[0].indexOf("╮");
-    expect(boxWidth).toBeGreaterThan(0);
-    expect(
-      rendered[0].slice(
-        boxWidth + 1,
-        boxWidth + 1 + catPack.actions.idle.frames[0].lines[0].length,
-      ),
-    ).toBe(catPack.actions.idle.frames[0].lines[0]);
+    expect(rendered.slice(0, 5).map((line) => line.slice(-140))).toEqual(
+      catPack.actions.idle.frames[0].lines,
+    );
 
     await host.emit("turn_start");
     await host.emit("tool_execution_start", { toolCallId: "1", toolName: "read" });
-    expect(widget.render(80)[1].trim()).not.toBe("");
+    expect(widget.render(158)[1].trim()).not.toBe("");
 
     await host.emit("tool_execution_end", { toolCallId: "1", toolName: "bash", isError: true });
-    expect(widget.render(80).length).toBeGreaterThanOrEqual(5);
+    expect(widget.render(158).length).toBeGreaterThanOrEqual(5);
   });
 
   test("a denied approval keeps the pet thinking instead of tool-running", async () => {
@@ -235,9 +245,8 @@ describe("merged pet runtime", () => {
       approved: false,
     });
 
-    const rendered = widget.render(80);
-    // Same pet rows as the standalone renderer (box side is decoration).
-    expect(rendered.slice(0, 5).map((line) => line.slice(-14))).toEqual(
+    const rendered = widget.render(158);
+    expect(rendered.slice(0, 5).map((line) => line.slice(-140))).toEqual(
       catPack.actions.think.frames[0].lines,
     );
   });
@@ -255,8 +264,8 @@ describe("merged pet runtime", () => {
       approved: true,
     });
 
-    const rendered = widget.render(80);
-    expect(rendered.slice(0, 5).map((line) => line.slice(-14))).toEqual(
+    const rendered = widget.render(158);
+    expect(rendered.slice(0, 5).map((line) => line.slice(-140))).toEqual(
       catPack.actions.work.frames[0].lines,
     );
   });
@@ -293,6 +302,11 @@ describe("merged pet runtime", () => {
     await host.emit("session_start");
     await host.settle();
 
+    const catRows = host.mountedWidget().render(80);
+    expect(catRows.slice(0, 5).map((line) => line.slice(-140))).toEqual(
+      catPack.actions.idle.frames[0].lines,
+    );
+
     await host.pet("dog");
     const dogRows = host.mountedWidget().render(48);
     expect(dogRows.join("\n")).toContain("/\\       /\\");
@@ -308,9 +322,11 @@ describe("merged pet runtime", () => {
     await host.settle();
     await host.emit("tool_execution_start", { toolCallId: "1", toolName: "bash" });
 
-    const rows = host.mountedWidget().render(40);
+    const rows = host.mountedWidget().render(158);
     expect(rows).toHaveLength(5);
-    expect(rows.join("\n")).toContain("/\\");
+    expect(rows.slice(0, 5).map((line) => line.slice(-140))).toEqual(
+      catPack.actions.work.frames[0].lines,
+    );
   });
 
   test("settles back to lifecycle after a non-loop reaction animation completes", async () => {
@@ -390,7 +406,7 @@ describe("merged pet runtime", () => {
     ).toContain("(idle)");
   });
 
-  test("celebrates success then settles back to lifecycle idle", async () => {
+  test("celebrates success with the looping happy run", async () => {
     const host = new FakeHost();
     await host.load();
     await host.emit("session_start");
@@ -398,12 +414,20 @@ describe("merged pet runtime", () => {
 
     const widget = host.mountedWidget();
     await host.emit("agent_end", {});
-    let rendered = widget.render(80);
-    expect(rendered.length).toBeGreaterThanOrEqual(5);
+    expect(
+      widget
+        .render(158)
+        .slice(0, 5)
+        .map((line) => line.slice(-140)),
+    ).toEqual(catPack.actions.happy.frames[0].lines);
 
-    await pumpable.run(20);
-    rendered = widget.render(80);
-    expect(rendered[0].endsWith("  /\\_____/\\   ")).toBe(true);
+    await pumpable.run(1);
+    expect(
+      widget
+        .render(158)
+        .slice(0, 5)
+        .map((line) => line.slice(-140)),
+    ).toEqual(catPack.actions.happy.frames[1].lines);
   });
 
   test("disposes the pet runtime on session_shutdown without leaking timers", async () => {
@@ -474,16 +498,27 @@ describe("merged pet runtime", () => {
     await host.settle();
 
     const widget = host.mountedWidget();
-    expect(widget.render(80)[0]).toContain("/\\_____/\\");
+    expect(
+      widget
+        .render(158)
+        .slice(0, 5)
+        .map((line) => line.slice(-140)),
+    ).toEqual(catPack.actions.idle.frames[0].lines);
 
     await host.headroom("off");
-    const offRendered = widget.render(80);
-    expect(offRendered[0]).not.toContain("/\\_____/\\");
+    const offRendered = widget.render(158);
+    expect(offRendered.every((line) => line.length < 140 || line.slice(-140).trim() === "")).toBe(
+      true,
+    );
     expect(host.notifications.join(" ")).toContain("pet");
 
     await host.headroom("on");
-    const onRendered = widget.render(80);
-    expect(onRendered[0]).toContain("/\\_____/\\");
+    expect(
+      widget
+        .render(158)
+        .slice(0, 5)
+        .map((line) => line.slice(-140)),
+    ).toEqual(catPack.actions.idle.frames[0].lines);
   });
 
   test("/pet status reports the current pack and lifecycle", async () => {

@@ -30,14 +30,14 @@
 - 现宠物 widget 正是工厂模式：`PetWidget implements Component`，`setFrame → tui.requestRender`。
 - 现_headroom widget 是字符串数组模式：`renderWidget()` 每次整盒重设。
   盒每行可见宽度恒为 `inner + 2`（`row()`/`borderLine()` 按 raw 长度补齐，ANSI/OSC 零宽）。
-- `renderPetFrame(frame, availableWidth)`：帧宽放不下时返回 `[]`（宠物自动隐藏）；帧是纯 ASCII，无控制序列。
-  合成 widget 将可用宽度传给渲染器，并把可显示的帧紧贴 Headroom 盒右侧。
+- `renderPetFrame(frame, availableWidth)`：standalone 渲染时，帧宽放不下则返回 `[]`；帧是纯 ASCII，无控制序列。
+  合成 widget 保留完整帧并紧贴 Headroom 盒右侧，超出面板的部分由宿主裁剪。
 - OMP 扩展上下文提供托管 `ctx.setTimeout` / `ctx.clearTimer`
   （`runner.ts` → `ManagedTimers`，回调异常被隔离），宠物动画调度依赖它。
 - 事件多播：同一事件名可注册多个 handler，pet 的 handler 与 headroom 已有的
   `session_compact` 等并存不冲突。
 - 安装侧 omp 18.1.21 的 `rightEditor` 面板宽度语义无法从本仓 dev 依赖（17.0.6）核实，
-  合成布局对任意传入宽度自适应；宠物放不下时退化为盒-only。
+  合成布局对任意传入宽度自适应；140 列默认猫在窄面板中由宿主裁剪。
 
 ## 3. 目录与文件
 
@@ -90,18 +90,23 @@ omp-headroom/
   - `setHeadroom(b)` / `setPetFrame(f)` / `setPetOn(b)`：赋值 + `requestRender`。
   - `render(width)`：
     ```
-    boxW  = headroom.width
-    petAvail = max(0, width - boxW - 1)          // 盒与宠物间 1 空格
-    petRows = petOn && petFrame ? renderPetFrame(petFrame, petAvail) : []
-    rows  = max(box.lines.length, petRows.length)
-    第 i 行 = (box.lines[i] ?? 空格×boxW) + (petRows[i] ?? 空格×petRowW)
+    frameW = petFrame?.lines[0]?.length ?? 0
+    petRows = petOn && petFrame ? renderPetFrame(petFrame, frameW) : []
+    minBoxW = min(headroom.width, 18)
+    boxW = petRows 非空
+      ? max(minBoxW, min(headroom.width, max(0, width - frameW)))
+      : headroom.width
+    rows = max(box.lines.length, petRows.length)
+    第 i 行 = fitBoxLine(box.lines[i], boxW) + (petRows[i] ?? 空格×frameW)
     ```
-    顶对齐；宠物不足侧行以空格补齐，列自然对齐。宠物采用固定左邻接，不提供对齐配置。
+    顶对齐；宠物不足侧行以空格补齐。宠物帧始终按自然宽度紧贴 Headroom 盒右侧，不提供
+    对齐配置。面板足够宽时盒保持自然宽度；空间不足时盒最多压缩到 18 列，合成行允许超过
+    `width`，由 OMP 宿主在面板边界裁剪。
 - 模块级桥：`WeakMap<ui, PetBridge>`，按 UI 对象隔离 extension 实例与并发会话。
 - `renderWidget(ctx, state)` 双路径：无宠物桥时维持字符串 widget；有桥时首次用工厂挂载，之后仅更新同一组件实例。
   工厂内容不受 10 行截断限制；盒 ≤6 行 + 宠物 5 行。
-宽度自适应：宠物始终紧贴 Headroom 盒右侧；合成 widget 不因剩余面板宽度不足而丢弃已选宠物帧，宿主负责在面板边界裁剪溢出内容。宠物放不下时退化为盒-only 的行为仅适用于 standalone `renderPetFrame` 的显式宽度预算。
-宠物始终紧贴 Headroom 盒右侧，不进行右对齐或其它 align 计算。
+宽度自适应：默认猫使用 140 列运动舞台；完整显示需要在 Headroom 盒右侧提供 140 列。合成 widget 不因面板宽度不足而截断或丢弃已选宠物帧；宠物放不下时返回 `[]` 的行为仅适用于 standalone `renderPetFrame` 的显式宽度预算。
+宠物不进行右对齐或其它 align 计算。
 
 ## 6. 统一 on/off（src/index.ts）
 
@@ -139,12 +144,11 @@ react("context-compacted") + thinking（与 headroom 既有 session_compact 计�
 
 ## 9. 测试
 
-- `tests/pet-domain.test.mjs`：原 pet.test.ts 全量移植（bundled packs 校验、Campy 词汇、
-  reaction 优先级/TTL、animator 启停、renderer 对齐/窄终端隐藏/无控制序列）。
-- `tests/pet-runtime.test.mjs`：FakeHost 直接驱动真实 wiring（假 scheduler、组件工厂），覆盖 lifecycle 切换、reaction 播放与回落、suspend/resume、pack 切换/丢失回退、项目 cwd 发现、坏包隔离与多实例隔离。
+- `tests/pet-domain.test.mjs`：bundled packs 校验、140 列猫的大幅横向运动、Campy 词汇、
+  reaction 优先级/TTL、animator 启停、standalone renderer 窄终端隐藏/无控制序列。
+- `tests/pet-runtime.test.mjs`：FakeHost 直接驱动真实 wiring（假 scheduler、组件工厂），覆盖 140 列猫完整合成渲染、lifecycle 切换、reaction 播放与回落、suspend/resume、pack 切换/丢失回退、项目 cwd 发现、坏包隔离与多实例隔离。
 - `tests/widget.test.mjs`：现有断言迁移到工厂内容——实例化工厂、`render(width)`，断言
-  左侧盒行与右侧宠物帧并存、`enabled=false` 时无宠物行且盒显示 off、窄宽度宠物隐藏
-  且盒原样。
+  左侧盒行与右侧宠物帧并存、`enabled=false` 时无宠物行且盒显示 off。
 - 统一开关回归：`/headroom off` 后 renderWidget 输出不含宠物帧，`on` 后恢复。
 - 全量 `bun test` + `bun run scan`（biome + scan-leaks 覆盖新文件）。
 
@@ -161,7 +165,7 @@ react("context-compacted") + thinking（与 headroom 既有 session_compact 计�
 
 | 风险 | 缓解 |
 | --- | --- |
-| omp 18 `rightEditor` 面宽语义未知 | 布局对任意宽度自适应；最坏退化为盒-only（即现状） |
+| omp 18 `rightEditor` 面宽语义未知 | 布局保留完整宠物帧并允许宿主裁剪；完整默认猫动作需要盒右侧 140 列 |
 | 工厂组件与 17.0.6 类型声明不符 | 沿用现有 `as never` cast（renderWidget 已这么做） |
 | 双 handler 同名事件 | OMP 事件多播，pet 侧自守卫 `mode==="tui"`；无共享可变状态 |
 | 动画/彩虹双定时器叠加渲染 | `requestRender` 由 TUI 合并帧；彩虹 180ms、宠物帧 100–900ms，量级不变 |

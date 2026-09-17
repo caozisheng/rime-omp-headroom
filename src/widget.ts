@@ -203,7 +203,8 @@ export function buildWidgetLines(state: HeadroomState): WidgetLines {
  * One component drawing the Headroom box on the left and the pet frame on the
  * right. The box is rebuilt (and recolored) by every renderWidget pass; the
  * pet side repaints independently on its own animation cadence. Rows are
- * top-aligned; the pet hides itself when the remaining width cannot fit it.
+ * top-aligned. The box may contract to 18 columns, but pet frames retain their
+ * natural width so the host owns clipping at the panel boundary.
  */
 class MergedWidget implements ExtensionUiComponent {
   private box: WidgetLines;
@@ -249,16 +250,16 @@ class MergedWidget implements ExtensionUiComponent {
         ? renderPetFrame(this.petFrame, frameWidth)
         : [];
     const minBoxWidth = Math.min(this.box.width, 18);
-    const petWidth =
-      petRows.length > 0 ? Math.min(frameWidth, Math.max(0, width - minBoxWidth)) : 0;
-    const boxWidth = petWidth > 0 ? Math.max(minBoxWidth, width - petWidth) : this.box.width;
+    const boxWidth =
+      petRows.length > 0
+        ? Math.max(minBoxWidth, Math.min(this.box.width, Math.max(0, width - frameWidth)))
+        : this.box.width;
     const boxLines = sourceBox.map((line) => fitBoxLine(line, boxWidth));
     const rowCount = Math.max(boxLines.length, petRows.length);
     const out: string[] = [];
     for (let i = 0; i < rowCount; i++) {
       const boxPart = boxLines[i] ?? " ".repeat(boxWidth);
-      const petPart =
-        i < petRows.length && petWidth > 0 ? petRows[i].slice(0, petWidth).padEnd(petWidth) : "";
+      const petPart = i < petRows.length ? petRows[i] : " ".repeat(frameWidth);
       out.push(boxPart + petPart);
     }
     this.cached = { width, rows: out };
