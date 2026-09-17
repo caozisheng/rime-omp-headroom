@@ -27,22 +27,89 @@ describe("bundled pet packs", () => {
     expect(validatePetPack(dogPack).ok).toBe(true);
   });
 
-  test("ships the cat on a 140-column stage with large horizontal motion", () => {
-    expect(catPack.width).toBe(140);
-    expect(validatePetPack(catPack).ok).toBe(true);
+  test("uses the original relaxed cat for the idle loop", () => {
+    const animation = catPack.actions.idle;
+    expect(animation.loop).toBe(true);
+    expect(animation.frames.map((frame) => frame.durationMs)).toEqual([900, 700]);
+    expect(animation.frames[0]?.lines).toEqual([
+      "  /\\_____/\\                                                           ",
+      " /  o   o  \\                                                          ",
+      "(  == ^ ==  )                                                         ",
+      " \\  '-'  /                                                            ",
+      " (__)  (__)                                                           ",
+    ]);
+    expect(animation.frames[1]?.lines[1]).toBe(
+      " /  -   -  \\                                                          ",
+    );
+  });
 
-    const leadingColumn = (frame) => {
-      const occupiedColumns = frame.lines
-        .filter((line) => line.trim().length > 0)
-        .map((line) => line.length - line.trimStart().length);
-      return Math.min(...occupiedColumns);
-    };
-    const happyTravel = catPack.actions.happy.frames.map(leadingColumn);
-    expect(Math.max(...happyTravel) - Math.min(...happyTravel)).toBeGreaterThanOrEqual(100);
+  test("supports the cat's 70-column motion with every action starting at the left edge", () => {
+    const result = validatePetPack(catPack);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
 
-    const idle = catPack.actions.idle.frames[0];
-    expect(renderPetFrame(idle, 140)).toEqual(idle.lines);
-    expect(renderPetFrame(idle, 139)).toEqual([]);
+    const pack = result.pack;
+    expect(pack.width).toBe(70);
+    const leadingColumn = (line) => line.length - line.trimStart().length;
+    const framePosition = (frame) =>
+      Math.min(...frame.lines.filter((line) => line.trim().length > 0).map(leadingColumn));
+    for (const [action, animation] of Object.entries(pack.actions)) {
+      expect(framePosition(animation.frames[0]), `${action} first frame`).toBe(0);
+    }
+    const positions = pack.actions.happy.frames.map(framePosition);
+    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThanOrEqual(45);
+
+    const rendered = renderPetFrame(pack.actions.idle.frames[0], 70);
+    expect(rendered).toHaveLength(5);
+    expect(rendered.every((line) => line.length === 70)).toBe(true);
+    expect(renderPetFrame(pack.actions.idle.frames[0], 69)).toEqual([]);
+  });
+
+  test("gives the cat a slow full-stage thinking narrative", () => {
+    const animation = catPack.actions.think;
+    const leadingColumn = (line) => line.length - line.trimStart().length;
+    const framePosition = (frame) =>
+      Math.min(...frame.lines.filter((line) => line.trim().length > 0).map(leadingColumn));
+    const positions = animation.frames.map(framePosition);
+    const durationMs = animation.frames.reduce((total, frame) => total + frame.durationMs, 0);
+    const confusionFrameIndex = animation.frames.findIndex((frame) =>
+      frame.lines.some((line) => line.includes("?")),
+    );
+    const insightFrameIndex = animation.frames.findIndex((frame) =>
+      frame.lines.some((line) => line.includes("!")),
+    );
+    const insightMarkerCount = animation.frames.reduce(
+      (count, frame) =>
+        count +
+        frame.lines.reduce((lineCount, line) => lineCount + (line.match(/!/g)?.length ?? 0), 0),
+      0,
+    );
+
+    expect(animation.loop).toBe(true);
+    expect(animation.frames.length).toBeGreaterThanOrEqual(16);
+    expect(durationMs).toBeGreaterThanOrEqual(8_000);
+    expect(durationMs).toBeLessThanOrEqual(10_000);
+    expect(animation.frames.every((frame) => frame.lines.length === 5)).toBe(true);
+    expect(animation.frames.every((frame) => frame.lines.every((line) => line.length === 70))).toBe(
+      true,
+    );
+    expect(positions[0]).toBe(0);
+    expect(Math.max(...positions)).toBeGreaterThanOrEqual(55);
+    expect(positions.at(-1)).toBeLessThanOrEqual(10);
+    expect(
+      positions.slice(1).every((position, index) => Math.abs(position - positions[index]) <= 20),
+    ).toBe(true);
+    expect(confusionFrameIndex).toBeGreaterThanOrEqual(0);
+    expect(insightFrameIndex).toBeGreaterThan(confusionFrameIndex);
+    expect(insightMarkerCount).toBe(1);
+  });
+
+  test("rejects pet packs wider than 70 columns", () => {
+    expect(validatePetPack({ ...dogPack, width: 70 }).ok).toBe(true);
+    const result = validatePetPack({ ...dogPack, width: 71 });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("invalid-dimensions");
   });
   test("validate the shipped parrot config-file pack and its action coverage", () => {
     const result = validatePetPack(parrotPack);

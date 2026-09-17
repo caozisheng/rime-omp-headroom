@@ -11,7 +11,7 @@ export const PET_FRAME_HEIGHT = 5;
 
 /** The supported inclusive width range for pet artwork. */
 export const MIN_PET_FRAME_WIDTH = 14;
-export const MAX_PET_FRAME_WIDTH = 140;
+export const MAX_PET_FRAME_WIDTH = 70;
 
 /** The default configured cap for pet artwork. */
 export const DEFAULT_PET_MAX_WIDTH = MAX_PET_FRAME_WIDTH;

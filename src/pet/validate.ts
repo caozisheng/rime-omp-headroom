@@ -1,8 +1,8 @@
 import type { Animation, Frame, PetPack, PetPackMetadata } from "./types.ts";
 
-/** The supported bounded sprite envelope. */
+/** The supported bounded animation-stage envelope. */
 export const PET_MIN_WIDTH = 14;
-export const PET_MAX_WIDTH = 140;
+export const PET_MAX_WIDTH = 70;
 export const PET_HEIGHT = 5;
 export const MIN_FRAME_DURATION_MS = 50;
 export const MAX_FRAME_DURATION_MS = 60_000;

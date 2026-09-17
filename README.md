@@ -175,7 +175,7 @@ Select a discovered pack with:
 
 ## Widget behavior
 
-The Headroom box and pet are rendered by one component. Animation frames request repaint without replacing the statistics widget, and the layout adapts to the width supplied by OMP. The bundled cat uses a 140-column motion stage so its large horizontal actions need 140 columns beside the Headroom box to remain fully visible. Narrower panels clip artwork at the panel boundary, but lifecycle updates and the Headroom rainbow continue to run.
+The Headroom box and pet are rendered by one component. Animation frames request repaint without replacing the statistics widget, and the layout adapts to the width supplied by OMP. The bundled cat uses a 70-column motion stage so its large horizontal actions need 70 columns beside the Headroom box to remain fully visible. Narrower panels clip artwork at the panel boundary, but lifecycle updates and the Headroom rainbow continue to run.
 
 ## Local data and privacy
 
